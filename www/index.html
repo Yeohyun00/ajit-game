@@ -2518,24 +2518,19 @@ document.getElementById('app').addEventListener('pointermove',e=>{
 /* ══ 아지트 이동 ══ */
 function renderAjitList(){
   const list=document.getElementById('ajitList'); list.innerHTML='';
-  ARTISTS.forEach(a=>{
+  const unlocked=ARTISTS.filter(a=>isArtistUnlocked(a.id));
+  unlocked.forEach(a=>{
     const card=document.createElement('div'); card.className=`ajit-card${a.id===S.currentArtist?' current':''}`;
     card.innerHTML=`
       <div class="ajit-card-av"><img src="assets/${a.sprite}_앞.png" alt="" onerror="this.parentNode.style.background='#f0e0c8'"></div>
       <div><div class="ajit-card-name">${a.fullName} 아지트</div><div class="ajit-card-sub">Lv.${a.level} · 친밀도 ${a.fp}/${a.fpMax}</div></div>
-      ${a.id===S.currentArtist?'<div class="ajit-now">현재</div>':(!isArtistUnlocked(a.id)?'<div class="ajit-now" style="background:#999">🔒</div>':'')}`;
+      ${a.id===S.currentArtist?'<div class="ajit-now">현재</div>':''}`;
     card.addEventListener('click',()=>{
-      if(!isArtistUnlocked(a.id)){
-        const pack=PACKS.find(p=>p.artistId===a.id);
-        if(pack) unlockPack(pack.id);
-      }
       S.currentArtist=a.id;
-      /* 새 쿼드 안으로 플레이어 위치 리셋 */
       const spawnX=155/402*100, spawnY=487/874*100;
       player.x=spawnX; player.y=spawnY; player.tx=spawnX; player.ty=spawnY; player.dx=0; player.dy=0;
       stopPlayerWalk();
       buildArtist();renderHud();updateRoomLock();closeSheet();
-      /* 배경 이미지 로드 후 가구 렌더링 — 로드 전 호출 시 transform이 틀릴 수 있음 */
       const bgEl=document.querySelector('.room-bg');
       if(bgEl.complete && bgEl.naturalWidth) renderFurniture();
       else bgEl.addEventListener('load', ()=>renderFurniture(), {once:true});
@@ -3070,7 +3065,11 @@ async function startNfcScan(){
     } catch(e){ if(statusEl) statusEl.textContent = `오류: ${e.message}`; }
     return;
   }
-  if(statusEl) statusEl.textContent = 'NFC가 지원되지 않는 환경이에요';
+  /* 삼성 인터넷 등 미지원 브라우저 안내 */
+  const isSamsungBrowser = /SamsungBrowser/i.test(navigator.userAgent);
+  if(statusEl) statusEl.innerHTML = isSamsungBrowser
+    ? '삼성 인터넷은 NFC를 지원하지 않아요.<br><b>Chrome 앱</b>으로 접속해주세요.'
+    : 'NFC가 지원되지 않는 브라우저예요.<br>Android Chrome에서 접속해주세요.';
 }
 
 function unlockPack(packId){
