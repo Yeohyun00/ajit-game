@@ -1,0 +1,24 @@
+{
+  "name": "아지트",
+  "short_name": "아지트",
+  "description": "EXO 아티스트와 함께하는 나만의 아지트",
+  "start_url": "./game.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5e6c8",
+  "theme_color": "#c49a5a",
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

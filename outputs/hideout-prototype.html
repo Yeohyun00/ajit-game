@@ -1,0 +1,1015 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>아지트</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      height: 100dvh;
+      overflow: hidden;
+      background: #c8955a;
+      display: flex;
+      justify-content: center;
+      font-family: "Apple SD Gothic Neo", "Pretendard", system-ui, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .app {
+      position: relative;
+      width: min(100vw, 440px);
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    /* ─── HUD (상단) ─── */
+    .hud {
+      position: absolute;
+      top: max(10px, env(safe-area-inset-top));
+      left: 10px;
+      right: 10px;
+      z-index: 80;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+    }
+    .hud > * { pointer-events: auto; }
+
+    .friendship-img {
+      height: 46px;
+      width: auto;
+      max-width: 58vw;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.18));
+    }
+
+    .right-hud {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 5px;
+    }
+    .coin-img {
+      height: 34px;
+      width: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 5px rgba(0,0,0,0.18));
+    }
+    .util-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .util-btn {
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      display: block;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .util-btn img {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.22));
+    }
+
+    /* ─── Stage ─── */
+    .stage {
+      position: absolute;
+      top: 60px;
+      left: 0;
+      right: 0;
+      bottom: 92px;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    .room-bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      pointer-events: none;
+      display: block;
+    }
+
+    /* ─── Actors ─── */
+    .actor {
+      position: absolute;
+      left: var(--x, 50%);
+      top: var(--y, 60%);
+      transform: translate(-50%, -92%);
+      z-index: var(--depth, 10);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: none;
+    }
+    .actor.npc-actor {
+      transition: left 3.1s ease-in-out, top 3.1s ease-in-out;
+    }
+    .actor.player-actor {
+      transition: none;
+    }
+
+    /* NPC sprite image */
+    .npc-sprite {
+      height: 115px;
+      width: auto;
+      display: block;
+      filter: drop-shadow(0 8px 8px rgba(50,30,10,0.22));
+      pointer-events: none;
+    }
+    .npc-sprite.flip {
+      transform: scaleX(-1);
+    }
+
+    /* talk badge above NPC */
+    .talk-badge-btn {
+      position: absolute;
+      top: -38px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      pointer-events: auto;
+      display: none;
+      -webkit-tap-highlight-color: transparent;
+      z-index: 5;
+    }
+    .talk-badge-btn.show { display: block; }
+    .talk-badge-btn img {
+      height: 32px;
+      width: auto;
+      filter: drop-shadow(0 3px 6px rgba(0,0,0,0.25));
+    }
+
+    /* Player CSS avatar */
+    .player-body {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      filter: drop-shadow(0 6px 6px rgba(50,30,10,0.2));
+    }
+    .player-label {
+      position: absolute;
+      top: -22px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #5b3d2a;
+      color: #fff8ea;
+      font-size: 11px;
+      font-weight: 900;
+      padding: 2px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+    }
+    .player-head {
+      width: 38px;
+      height: 36px;
+      border-radius: 50% 50% 44% 44%;
+      background: #ffd8bf;
+      border: 2.5px solid #6d4a3a;
+      position: relative;
+      overflow: hidden;
+    }
+    .player-head::before {
+      content: "";
+      position: absolute;
+      inset: -6px -4px 18px;
+      border-radius: 45%;
+      background: #c8956b;
+    }
+    .player-torso {
+      width: 28px;
+      height: 28px;
+      margin-top: -3px;
+      border-radius: 10px 10px 8px 8px;
+      background: #5a7dc8;
+      border: 2.5px solid #3a4a80;
+    }
+    .player-legs {
+      width: 24px;
+      height: 16px;
+      margin-top: -3px;
+      background: #2d3a50;
+      border: 2px solid #1a2235;
+      border-radius: 0 0 6px 6px;
+    }
+
+    /* ─── Joystick ─── */
+    .joystick-outer {
+      position: absolute;
+      width: 118px;
+      height: 118px;
+      display: none;
+      z-index: 100;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .joystick-outer.show { display: block; }
+    .joystick-base-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.9;
+    }
+    .joystick-knob {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #ffe88a, #d4870a);
+      border: 2px solid rgba(160,80,10,0.7);
+      transform: translate(-50%, -50%);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      z-index: 1;
+    }
+
+    /* ─── Bottom Nav ─── */
+    .bottom-nav {
+      position: absolute;
+      bottom: max(8px, env(safe-area-inset-bottom));
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-end;
+      padding: 0 12px;
+      z-index: 82;
+    }
+    .nav-btn {
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      display: block;
+    }
+    .nav-btn img {
+      height: 80px;
+      width: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+    }
+    .nav-btn:active img { transform: scale(0.94); }
+
+    /* ─── Dialog Panel ─── */
+    .dialog-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 120;
+      display: none;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 10px 10px max(12px, env(safe-area-inset-bottom));
+      background: rgba(0,0,0,0.06);
+    }
+    .dialog-overlay.show { display: flex; }
+
+    .dialog-box {
+      background: #fbe8d6;
+      border: 3.5px solid #7a4d30;
+      border-radius: 14px;
+      padding: 10px 12px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .dialog-char-img {
+      width: 78px;
+      height: 104px;
+      object-fit: contain;
+      object-position: bottom center;
+      flex-shrink: 0;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #fff8ea, #ffd8bf);
+      border: 2px solid #c8956b;
+    }
+    .dialog-content { flex: 1; min-width: 0; }
+    .dialog-name {
+      display: inline-block;
+      padding: 4px 12px;
+      background: #7a5238;
+      color: #fff8ea;
+      border-radius: 8px;
+      font-weight: 900;
+      font-size: 14px;
+      margin-bottom: 7px;
+    }
+    .dialog-text {
+      background: #fff0c8;
+      border: 2.5px solid #7a5238;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-weight: 700;
+      line-height: 1.55;
+      font-size: 14px;
+      min-height: 68px;
+    }
+
+    .choice-row {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-top: 8px;
+    }
+    .choice-btn {
+      background: #7a5238;
+      color: #fff8ea;
+      border: none;
+      border-radius: 10px;
+      padding: 11px 16px;
+      font-weight: 800;
+      font-size: 14px;
+      text-align: left;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      line-height: 1.4;
+    }
+    .choice-btn:active { opacity: 0.8; }
+
+    .close-dialog-btn {
+      background: #5b3d2a;
+      color: #fff8ea;
+      border: none;
+      border-radius: 10px;
+      padding: 11px;
+      font-weight: 900;
+      font-size: 14px;
+      cursor: pointer;
+      width: 100%;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ─── Panels (상점 / 창고 / 아지트원) ─── */
+    .panel {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      z-index: 130;
+      max-height: 72dvh;
+      overflow: auto;
+      padding: 16px 14px max(18px, env(safe-area-inset-bottom));
+      border-radius: 16px 16px 0 0;
+      background: rgba(255, 250, 240, 0.98);
+      border-top: 2px solid #e6bf8a;
+      box-shadow: 0 -16px 40px rgba(93,57,34,0.22);
+      transform: translateY(110%);
+      transition: transform 0.28s cubic-bezier(0.32,0.72,0,1);
+    }
+    .panel.open { transform: translateY(0); }
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .panel-title {
+      font-size: 18px;
+      font-weight: 900;
+      color: #4d3527;
+    }
+    .panel-close {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: #f3dec6;
+      border: none;
+      cursor: pointer;
+      position: relative;
+    }
+    .panel-close::before, .panel-close::after {
+      content: "";
+      position: absolute;
+      left: 9px; right: 9px;
+      top: 16px;
+      height: 2px;
+      background: #4d3527;
+      border-radius: 2px;
+    }
+    .panel-close::before { transform: rotate(45deg); }
+    .panel-close::after { transform: rotate(-45deg); }
+
+    .panel-body { color: #4d3527; font-size: 14px; line-height: 1.7; }
+    .panel-body p { margin-bottom: 8px; }
+
+    /* member grid */
+    .member-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .member-card {
+      background: #fff3df;
+      border: 1.5px solid #efc897;
+      border-radius: 12px;
+      padding: 10px 8px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+    .member-card img { height: 70px; width: auto; object-fit: contain; }
+    .member-name { font-weight: 900; font-size: 13px; color: #4d3527; }
+    .member-lv { font-size: 12px; color: #80604a; }
+
+    /* ─── Toast ─── */
+    .toast-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 160;
+      pointer-events: none;
+    }
+    .toast {
+      position: absolute;
+      left: 50%;
+      top: 16%;
+      max-width: min(88vw, 360px);
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: rgba(79,58,48,0.94);
+      color: #fff7e7;
+      box-shadow: 0 10px 28px rgba(78,47,28,0.28);
+      transform: translateX(-50%);
+      font-weight: 900;
+      font-size: 13px;
+      text-align: center;
+      animation: toastAnim 2.2s ease forwards;
+    }
+    @keyframes toastAnim {
+      0% { opacity: 0; transform: translate(-50%, -10px); }
+      12%, 80% { opacity: 1; transform: translate(-50%, 0); }
+      100% { opacity: 0; transform: translate(-50%, -8px); }
+    }
+
+    /* ─── Celebration sparks ─── */
+    .spark {
+      position: absolute;
+      width: 9px;
+      height: 9px;
+      border-radius: 2px;
+      background: var(--c);
+      animation: sparkAnim 1s ease forwards;
+      pointer-events: none;
+      z-index: 155;
+    }
+    @keyframes sparkAnim {
+      0%   { opacity: 1; transform: translate(0,0) rotate(0deg); }
+      100% { opacity: 0; transform: translate(var(--tx), var(--ty)) rotate(200deg); }
+    }
+  </style>
+</head>
+<body>
+<main class="app" id="app">
+
+  <!-- 상단 HUD -->
+  <header class="hud">
+    <img src="../친밀도.png" class="friendship-img" alt="친밀도">
+    <div class="right-hud">
+      <img src="../재화.png" class="coin-img" alt="재화">
+      <div class="util-stack">
+        <button class="util-btn" data-util="설정"><img src="../설정.png" alt="설정"></button>
+        <button class="util-btn" data-util="쪽지함"><img src="../쪽지함.png" alt="쪽지함"></button>
+        <button class="util-btn" data-util="카메라"><img src="../카메라.png" alt="카메라"></button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 스테이지 -->
+  <div class="stage" id="stage">
+    <img src="../처음 홈.png" class="room-bg" alt="방" draggable="false">
+    <div id="actorsLayer"></div>
+    <!-- 조이스틱 -->
+    <div class="joystick-outer" id="joystickOuter">
+      <img src="../조이스틱.png" class="joystick-base-img" alt="" draggable="false">
+      <div class="joystick-knob" id="joystickKnob"></div>
+    </div>
+  </div>
+
+  <!-- 하단 네비게이션 -->
+  <nav class="bottom-nav">
+    <button class="nav-btn" data-panel="shop"><img src="../상점.png" alt="상점"></button>
+    <button class="nav-btn" data-panel="storage"><img src="../창고.png" alt="창고"></button>
+    <button class="nav-btn" data-panel="members"><img src="../아지트원.png" alt="아지트원"></button>
+  </nav>
+
+  <!-- 대화 오버레이 -->
+  <div class="dialog-overlay" id="dialogOverlay">
+    <div class="dialog-box">
+      <img id="dialogCharImg" class="dialog-char-img" alt="">
+      <div class="dialog-content">
+        <div id="dialogName" class="dialog-name"></div>
+        <div id="dialogText" class="dialog-text"></div>
+      </div>
+    </div>
+    <div id="choiceRow" class="choice-row"></div>
+  </div>
+
+  <!-- 패널들 -->
+  <section class="panel" id="shopPanel">
+    <div class="panel-head">
+      <span class="panel-title">상점</span>
+      <button class="panel-close" data-close></button>
+    </div>
+    <div class="panel-body">
+      <p>아직 판매 중인 아이템이 없어요.</p>
+      <p>곧 새로운 아이템이 들어올 예정이에요!</p>
+    </div>
+  </section>
+
+  <section class="panel" id="storagePanel">
+    <div class="panel-head">
+      <span class="panel-title">창고</span>
+      <button class="panel-close" data-close></button>
+    </div>
+    <div class="panel-body">
+      <p>보관된 아이템이 없어요.</p>
+      <p>상점에서 아이템을 구매하면 여기에 보관돼요.</p>
+    </div>
+  </section>
+
+  <section class="panel" id="membersPanel">
+    <div class="panel-head">
+      <span class="panel-title">아지트원</span>
+      <button class="panel-close" data-close></button>
+    </div>
+    <div id="memberGrid" class="member-grid"></div>
+  </section>
+
+  <div class="toast-layer" id="toastLayer"></div>
+</main>
+
+<script>
+/* ══════════════════════════════════════
+   데이터
+══════════════════════════════════════ */
+const NPCS = [
+  {
+    id: 'ningning',
+    name: '닝닝',
+    sprite: '닝닝',
+    level: 5,
+    xp: 40,
+    x: 22,
+    y: 56,
+    dx: 0,
+    dy: 0,
+    dialog: {
+      start: '어머, 왔어? 나 마침 쉬고 싶었는데 잘 됐다.',
+      replies: [
+        ['나도 좀 쉬고 싶었어.', '그지? 가끔은 이렇게 아무것도 안 해도 되는 시간이 필요해. 같이 있자.'],
+        ['요즘 어때?', '조금 바빴는데, 네가 와서 기분이 훨씬 나아졌어. 고마워.']
+      ]
+    }
+  },
+  {
+    id: 'kai',
+    name: '카이',
+    sprite: '카이',
+    level: 7,
+    xp: 65,
+    x: 55,
+    y: 46,
+    dx: 0,
+    dy: 0,
+    dialog: {
+      start: '오, 마침 잘 왔어. 혼자 있으면 좀 심심하거든.',
+      replies: [
+        ['같이 뭐 할까?', '그냥 이야기나 해도 좋아. 네 얘기 듣고 싶었어.'],
+        ['최근에 뭐 하고 있어?', '새로운 곡 작업 중이야. 가사가 생각보다 잘 풀리고 있어서 기분이 좋아.']
+      ]
+    }
+  },
+  {
+    id: 'dio',
+    name: '디오',
+    sprite: '디오',
+    level: 9,
+    xp: 80,
+    x: 72,
+    y: 58,
+    dx: 0,
+    dy: 0,
+    dialog: {
+      start: '가까이 오니까 반갑네. 무슨 일 있어?',
+      replies: [
+        ['그냥 보고 싶었어.', '그거면 충분해. 여기 있을게, 같이.'],
+        ['요즘 잘 지내?', '응, 덕분에. 네가 자주 와줘서 아지트가 따뜻한 것 같아.']
+      ]
+    }
+  }
+];
+
+/* ══════════════════════════════════════
+   상태
+══════════════════════════════════════ */
+const state = {
+  player: { x: 48, y: 72, dx: 0, dy: 0 },
+  nearby: null,
+  dialogNpc: null,
+  dialogTurn: 0,
+  joystick: {
+    active: false,
+    holding: false,
+    centerX: 0,
+    centerY: 0,
+    dx: 0,
+    dy: 0,
+    timer: null,
+    pointerId: null
+  }
+};
+
+/* ══════════════════════════════════════
+   DOM refs
+══════════════════════════════════════ */
+const stage          = document.getElementById('stage');
+const actorsLayer    = document.getElementById('actorsLayer');
+const joystickOuter  = document.getElementById('joystickOuter');
+const joystickKnob   = document.getElementById('joystickKnob');
+const dialogOverlay  = document.getElementById('dialogOverlay');
+const dialogCharImg  = document.getElementById('dialogCharImg');
+const dialogNameEl   = document.getElementById('dialogName');
+const dialogTextEl   = document.getElementById('dialogText');
+const choiceRow      = document.getElementById('choiceRow');
+const toastLayer     = document.getElementById('toastLayer');
+
+/* ══════════════════════════════════════
+   스프라이트 방향 결정
+══════════════════════════════════════ */
+function getSpriteInfo(name, dx, dy) {
+  const adx = Math.abs(dx);
+  const ady = Math.abs(dy);
+  if (adx < 0.01 && ady < 0.01) return { suffix: '앞', flip: false };
+  if (adx >= ady) {
+    return { suffix: '옆', flip: dx > 0 };
+  }
+  if (dy < 0) return { suffix: '뒤', flip: false };
+  return { suffix: '앞', flip: false };
+}
+
+function getSpriteUrl(spriteName, suffix) {
+  return `../${spriteName}_${suffix}.png`;
+}
+
+/* ══════════════════════════════════════
+   액터 렌더링
+══════════════════════════════════════ */
+function buildActors() {
+  actorsLayer.innerHTML = '';
+
+  // NPC 액터
+  NPCS.forEach(npc => {
+    const el = document.createElement('div');
+    el.className = 'actor npc-actor';
+    el.dataset.id = npc.id;
+    el.style.setProperty('--x', `${npc.x}%`);
+    el.style.setProperty('--y', `${npc.y}%`);
+    el.style.setProperty('--depth', String(Math.round(npc.y)));
+
+    const talkBtn = document.createElement('button');
+    talkBtn.className = 'talk-badge-btn';
+    talkBtn.dataset.npcId = npc.id;
+    talkBtn.innerHTML = `<img src="../대화하기.png" alt="대화하기">`;
+    talkBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDialog(npc.id);
+    });
+
+    const sprite = document.createElement('img');
+    sprite.className = 'npc-sprite';
+    sprite.src = getSpriteUrl(npc.sprite, '앞');
+    sprite.alt = npc.name;
+    sprite.draggable = false;
+
+    el.appendChild(talkBtn);
+    el.appendChild(sprite);
+    actorsLayer.appendChild(el);
+  });
+
+  // 플레이어 액터
+  const playerEl = document.createElement('div');
+  playerEl.className = 'actor player-actor';
+  playerEl.dataset.id = 'player';
+  playerEl.style.setProperty('--x', `${state.player.x}%`);
+  playerEl.style.setProperty('--y', `${state.player.y}%`);
+  playerEl.style.setProperty('--depth', String(Math.round(state.player.y)));
+  playerEl.innerHTML = `
+    <div class="player-body">
+      <div class="player-label">나</div>
+      <div class="player-head"></div>
+      <div class="player-torso"></div>
+      <div class="player-legs"></div>
+    </div>
+  `;
+  actorsLayer.appendChild(playerEl);
+}
+
+function updateActorDom(id, x, y, depth) {
+  const el = actorsLayer.querySelector(`[data-id="${id}"]`);
+  if (!el) return;
+  el.style.setProperty('--x', `${x}%`);
+  el.style.setProperty('--y', `${y}%`);
+  el.style.setProperty('--depth', String(Math.round(depth ?? y)));
+}
+
+function updateNpcSprite(npc) {
+  const el = actorsLayer.querySelector(`[data-id="${npc.id}"]`);
+  if (!el) return;
+  const sprite = el.querySelector('.npc-sprite');
+  if (!sprite) return;
+  const info = getSpriteInfo(npc.sprite, npc.dx, npc.dy);
+  sprite.src = getSpriteUrl(npc.sprite, info.suffix);
+  sprite.classList.toggle('flip', info.flip);
+}
+
+/* ══════════════════════════════════════
+   근접 감지 & 대화 뱃지
+══════════════════════════════════════ */
+const PROXIMITY_THRESHOLD = 14; // % 단위 (화면 비율 기준)
+
+function findNearbyNpc() {
+  let closest = null;
+  let minDist = Infinity;
+  NPCS.forEach(npc => {
+    const dx = npc.x - state.player.x;
+    const dy = (npc.y - state.player.y) * 1.2;
+    const dist = Math.hypot(dx, dy);
+    if (dist < minDist) { minDist = dist; closest = npc; }
+  });
+  return minDist <= PROXIMITY_THRESHOLD ? closest : null;
+}
+
+function updateTalkBadges() {
+  const nearby = findNearbyNpc();
+  state.nearby = nearby ? nearby.id : null;
+  NPCS.forEach(npc => {
+    const btn = actorsLayer.querySelector(`.talk-badge-btn[data-npc-id="${npc.id}"]`);
+    if (btn) btn.classList.toggle('show', nearby?.id === npc.id);
+  });
+}
+
+/* ══════════════════════════════════════
+   NPC 배회
+══════════════════════════════════════ */
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+function wander() {
+  if (dialogOverlay.classList.contains('show')) return;
+  NPCS.forEach(npc => {
+    if (Math.random() < 0.7) {
+      const newX = clamp(18 + Math.random() * 60, 14, 82);
+      const newY = clamp(38 + Math.random() * 40, 36, 80);
+      npc.dx = newX - npc.x;
+      npc.dy = newY - npc.y;
+      npc.x = newX;
+      npc.y = newY;
+      updateNpcSprite(npc);
+      updateActorDom(npc.id, npc.x, npc.y);
+    }
+  });
+  updateTalkBadges();
+}
+
+/* ══════════════════════════════════════
+   조이스틱 & 플레이어 이동
+══════════════════════════════════════ */
+function startHold(e) {
+  if (e.target.closest('button') || e.target.closest('.panel')) return;
+  if (dialogOverlay.classList.contains('show')) return;
+  closePanels();
+
+  const rect = stage.getBoundingClientRect();
+  state.joystick.holding = true;
+  state.joystick.pointerId = e.pointerId;
+  state.joystick.centerX = e.clientX - rect.left;
+  state.joystick.centerY = e.clientY - rect.top;
+  state.joystick.dx = 0;
+  state.joystick.dy = 0;
+
+  clearTimeout(state.joystick.timer);
+  state.joystick.timer = setTimeout(() => {
+    if (!state.joystick.holding) return;
+    state.joystick.active = true;
+    joystickOuter.style.left = `${state.joystick.centerX}px`;
+    joystickOuter.style.top  = `${state.joystick.centerY}px`;
+    joystickOuter.classList.add('show');
+  }, 350);
+}
+
+function moveHold(e) {
+  if (!state.joystick.holding || e.pointerId !== state.joystick.pointerId) return;
+  if (!state.joystick.active) return;
+
+  const rect = stage.getBoundingClientRect();
+  const px = e.clientX - rect.left;
+  const py = e.clientY - rect.top;
+  const rawX = px - state.joystick.centerX;
+  const rawY = py - state.joystick.centerY;
+  const maxR  = 40;
+  const dist  = Math.min(maxR, Math.hypot(rawX, rawY));
+  const angle = Math.atan2(rawY, rawX);
+  const knobX = Math.cos(angle) * dist;
+  const knobY = Math.sin(angle) * dist;
+  joystickKnob.style.transform = `translate(calc(-50% + ${knobX}px), calc(-50% + ${knobY}px))`;
+  state.joystick.dx = Math.cos(angle) * (dist / maxR);
+  state.joystick.dy = Math.sin(angle) * (dist / maxR);
+}
+
+function stopHold(e) {
+  if (e && e.pointerId !== state.joystick.pointerId) return;
+  clearTimeout(state.joystick.timer);
+  state.joystick.holding = false;
+  state.joystick.active  = false;
+  state.joystick.dx = 0;
+  state.joystick.dy = 0;
+  state.joystick.pointerId = null;
+  joystickOuter.classList.remove('show');
+  joystickKnob.style.transform = 'translate(-50%, -50%)';
+  // NPC 스프라이트 멈춤 방향 → 앞
+  state.player.dx = 0;
+  state.player.dy = 0;
+}
+
+function movementLoop() {
+  if (state.joystick.active) {
+    const speed = 0.55;
+    const newX = clamp(state.player.x + state.joystick.dx * speed, 12, 86);
+    const newY = clamp(state.player.y + state.joystick.dy * speed, 35, 83);
+    state.player.dx = newX - state.player.x;
+    state.player.dy = newY - state.player.y;
+    state.player.x = newX;
+    state.player.y = newY;
+    updateActorDom('player', state.player.x, state.player.y);
+    updateTalkBadges();
+  }
+  requestAnimationFrame(movementLoop);
+}
+
+/* ══════════════════════════════════════
+   대화
+══════════════════════════════════════ */
+function openDialog(npcId) {
+  const npc = NPCS.find(n => n.id === npcId);
+  if (!npc) return;
+
+  state.dialogNpc = npc;
+  state.dialogTurn = 0;
+
+  dialogCharImg.src = getSpriteUrl(npc.sprite, '앞');
+  dialogCharImg.alt = npc.name;
+  dialogNameEl.textContent = npc.name;
+  dialogTextEl.textContent = npc.dialog.start;
+
+  renderChoices(npc);
+  dialogOverlay.classList.add('show');
+}
+
+function renderChoices(npc) {
+  choiceRow.innerHTML = '';
+  if (state.dialogTurn === 0) {
+    npc.dialog.replies.forEach((reply, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'choice-btn';
+      btn.textContent = `선택지 ${String.fromCharCode(65 + i)}: ${reply[0]}`;
+      btn.addEventListener('click', () => {
+        state.dialogTurn = 1;
+        dialogTextEl.textContent = reply[1];
+        gainFriendship(npc, 8);
+        renderChoices(npc);
+      });
+      choiceRow.appendChild(btn);
+    });
+  } else {
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'close-dialog-btn';
+    closeBtn.textContent = '대화 종료';
+    closeBtn.addEventListener('click', closeDialog);
+    choiceRow.appendChild(closeBtn);
+  }
+}
+
+function closeDialog() {
+  dialogOverlay.classList.remove('show');
+  state.dialogNpc = null;
+  state.dialogTurn = 0;
+  choiceRow.innerHTML = '';
+}
+
+function gainFriendship(npc, amount) {
+  npc.xp += amount;
+  if (npc.xp >= 100) {
+    npc.level += 1;
+    npc.xp -= 100;
+    celebrate();
+    showToast(`${npc.name}와의 친밀도가 Lv. ${npc.level}이 되었어요! ✨`);
+  }
+  renderMembers();
+}
+
+/* ══════════════════════════════════════
+   패널
+══════════════════════════════════════ */
+function openPanel(name) {
+  if (name === 'members') renderMembers();
+  closePanels();
+  const panel = document.getElementById(`${name}Panel`);
+  if (panel) panel.classList.add('open');
+}
+
+function closePanels() {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('open'));
+}
+
+function renderMembers() {
+  const grid = document.getElementById('memberGrid');
+  grid.innerHTML = NPCS.map(npc => `
+    <div class="member-card">
+      <img src="${getSpriteUrl(npc.sprite, '앞')}" alt="${npc.name}">
+      <div class="member-name">${npc.name}</div>
+      <div class="member-lv">Lv. ${npc.level} · ${npc.xp}%</div>
+    </div>
+  `).join('');
+}
+
+/* ══════════════════════════════════════
+   토스트 & 축하
+══════════════════════════════════════ */
+function showToast(text) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = text;
+  toastLayer.appendChild(el);
+  setTimeout(() => el.remove(), 2400);
+}
+
+function celebrate() {
+  const colors = ['#ee7594','#f0b84f','#91cfb8','#91bfe2','#b99ce0'];
+  for (let i = 0; i < 22; i++) {
+    const sp = document.createElement('div');
+    sp.className = 'spark';
+    sp.style.cssText = `
+      left: ${20 + Math.random() * 60}%;
+      top:  ${25 + Math.random() * 35}%;
+      --c:  ${colors[i % colors.length]};
+      --tx: ${-80 + Math.random() * 160}px;
+      --ty: ${-110 + Math.random() * 130}px;
+      z-index: 155;
+      position: absolute;
+    `;
+    document.querySelector('.app').appendChild(sp);
+    setTimeout(() => sp.remove(), 1100);
+  }
+}
+
+/* ══════════════════════════════════════
+   이벤트 바인딩
+══════════════════════════════════════ */
+stage.addEventListener('pointerdown',  startHold);
+stage.addEventListener('pointermove',  moveHold);
+stage.addEventListener('pointerup',    stopHold);
+stage.addEventListener('pointercancel', stopHold);
+stage.addEventListener('pointerleave', stopHold);
+
+document.querySelectorAll('[data-panel]').forEach(btn => {
+  btn.addEventListener('click', () => openPanel(btn.dataset.panel));
+});
+document.querySelectorAll('[data-close]').forEach(btn => {
+  btn.addEventListener('click', closePanels);
+});
+document.querySelectorAll('[data-util]').forEach(btn => {
+  btn.addEventListener('click', () => showToast(`${btn.dataset.util} 기능은 준비 중이에요.`));
+});
+
+/* ══════════════════════════════════════
+   초기화
+══════════════════════════════════════ */
+buildActors();
+movementLoop();
+
+// NPC 배회: 처음 즉시 + 3.2초마다
+wander();
+setInterval(wander, 3400);
+
+// NPC CSS 전환 후 대화 뱃지 갱신
+setInterval(updateTalkBadges, 500);
+</script>
+</body>
+</html>
