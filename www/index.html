@@ -3075,11 +3075,18 @@ async function startNfcScan(){
 function unlockPack(packId){
   if(S.unlockedPacks.includes(packId)) return;
   S.unlockedPacks.push(packId);
-  saveGame();
-  updateRoomLock();
-  buildArtist();
-  renderFurniture();
   const pack = PACKS.find(p=>p.id===packId);
+  /* 해금된 아티스트 아지트로 즉시 이동 */
+  if(pack?.artistId) S.currentArtist = pack.artistId;
+  const spawnX=155/402*100, spawnY=487/874*100;
+  player.x=spawnX; player.y=spawnY; player.tx=spawnX; player.ty=spawnY; player.dx=0; player.dy=0;
+  stopPlayerWalk();
+  saveGame();
+  buildArtist(); renderHud(); updateRoomLock();
+  const bgEl=document.querySelector('.room-bg');
+  if(bgEl.complete && bgEl.naturalWidth) renderFurniture();
+  else bgEl.addEventListener('load', ()=>renderFurniture(), {once:true});
+  showNfcSplash();
   showToast(`🎉 ${pack?.name||'아지트'} 해금!`);
 }
 
