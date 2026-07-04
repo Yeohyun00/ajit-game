@@ -94,7 +94,7 @@
     /* 촬영/설정 — Figma camera left:288→279px top:82, settings left:340→330px top:80 */
     .util-row {
       position: absolute;
-      left: 279px;
+      right: 12px;
       top: calc(var(--sat) + 66px);
       display: flex; gap: 4px; align-items: center;
     }
@@ -1731,7 +1731,7 @@ function buildArtist(){
     if(S.giftMode){deliverGift();return;}
     spriteEl.style.transform='scaleX(1)';
     const now=Date.now();
-    if(now-artistLastTap<320){
+    if(now-artistLastTap<500){
       artistLastTap=0;
       openDialogSheet();
     } else {
@@ -2994,12 +2994,20 @@ function updateRoomLock(){
   const unlocked = isArtistUnlocked(S.currentArtist);
   const overlay = document.getElementById('nfcLockOverlay');
   overlay.classList.toggle('hidden', unlocked);
+  const nav = document.querySelector('.bottom-nav');
+  if(nav) nav.style.display = unlocked ? '' : 'none';
   /* 배경 이미지 — 팩의 background로 교체 */
   const pack = getUnlockedPack(S.currentArtist);
   const bg = document.querySelector('.room-bg');
   if(bg){
-    if(pack && pack.background) bg.src = pack.background;
-    bg.style.filter = unlocked ? '' : 'brightness(0.25)';
+    if(unlocked && pack && pack.background){
+      bg.src = pack.background;
+      bg.style.background = '';
+    } else if(!unlocked){
+      bg.src = '';
+      bg.style.background = '#fff';
+    }
+    bg.style.filter = unlocked ? '' : '';
   }
   /* NFC 안내문 아티스트 이름 업데이트 */
   const lockSub = document.querySelector('.nfc-lock-sub');
