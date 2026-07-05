@@ -21,6 +21,7 @@
       font-weight: normal; font-style: normal;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { overflow: hidden; height: 100dvh; }
     body {
       height: 100dvh; overflow: hidden;
       background: #e8d8b8;
@@ -574,7 +575,7 @@
     .setup-app-card img{width:100%;height:130%;object-fit:cover;object-position:center 10%;position:absolute;top:0;left:0;}
     .setup-name-input{
       width:100%;padding:14px 16px;border-radius:14px;border:2px solid #dcc8a8;
-      background:#fff;font-family:inherit;font-size:15px;color:#2e1a0e;
+      background:#fff;font-family:inherit;font-size:16px;color:#2e1a0e;
       box-sizing:border-box;outline:none;
     }
     .setup-name-input:focus{border-color:#c8683a;}
@@ -896,7 +897,7 @@
            id="letterLines"></div>
       <textarea id="letterInput" maxlength="150"
         placeholder="D.O.에게 전하고 싶은 말을 써요..."
-        style="position:absolute;inset:0;width:100%;height:100%;border:none;outline:none;background:transparent;resize:none;font-family:'BMHANNA',sans-serif;font-size:15px;line-height:28px;color:#2a1a0a;padding:10px 14px;box-sizing:border-box;caret-color:#7a4f2e;"></textarea>
+        style="position:absolute;inset:0;width:100%;height:100%;border:none;outline:none;background:transparent;resize:none;font-family:'BMHANNA',sans-serif;font-size:16px;line-height:28px;color:#2a1a0a;padding:10px 14px;box-sizing:border-box;caret-color:#7a4f2e;"></textarea>
     </div>
 
     <!-- 포춘쿠키 띠지 (landscape, 1줄) -->
@@ -1636,10 +1637,10 @@ const S = {
 /* ══ 걷기 범위: 4점 볼록다각형 (이미지 픽셀 402×874 → % 변환) ══ */
 const QUADS = {
   dio: [
-    {x:9/402*100,  y:465/874*100},   // (9,465)
+    {x:20/402*100,  y:459/874*100},   // (20,459)
     {x:165/402*100,y:380/874*100},   // (165,380)
     {x:359/402*100,y:507/874*100},   // (359,507)
-    {x:208/402*100,y:611/874*100},   // (208,611)
+    {x:219/402*100,y:595/874*100},   // (219,595)
   ],
   kai: [
     {x:19/402*100,  y:523/874*100},  // (19,523)
@@ -1821,6 +1822,7 @@ function buildArtist(){
   artistLayer.appendChild(artistEl);
 
   let artistLastTap=0;
+  artistEl.addEventListener('click', e=>e.stopPropagation(), {capture:true});
   artistEl.addEventListener('pointerdown',e=>{
     e.stopPropagation();
     if(dragState?.type==='writtenGift'){ const s=dragState; clearWrittenDrag(); deliverWritableGift(s.id,s.writtenData.text); setTimeout(()=>renderStorage(),100); return; }
@@ -1829,7 +1831,8 @@ function buildArtist(){
     const now=Date.now();
     if(now-artistLastTap<500){
       artistLastTap=0;
-      openDialogSheet();
+      e.preventDefault();
+      setTimeout(()=>openDialogSheet(), 10);
     } else {
       artistLastTap=now;
       playTapSFX();
@@ -2652,7 +2655,14 @@ async function startNFC(){
     reader.addEventListener('reading',()=>{ showNfcSplash(); closeSheet(); },{once:false});
   }catch(e){ showToast('NFC 스캔을 시작할 수 없어요.'); }
 }
-document.getElementById('nfcBtn').addEventListener('click',startNFC);
+document.getElementById('nfcBtn').addEventListener('click',()=>{
+  closeSheet();
+  const overlay=document.getElementById('nfcLockOverlay');
+  overlay.classList.remove('hidden');
+  const nav=document.querySelector('.bottom-nav');
+  if(nav) nav.style.display='none';
+  document.getElementById('nfcStatus').textContent='';
+});
 
 /* ══ 기타 버튼 ══ */
 document.getElementById('cameraBtn').addEventListener('click', async ()=>{
@@ -3278,7 +3288,7 @@ function preloadAndStart(){
     'assets/초기랜딩화면.png',
   ];
   let loaded = 0;
-  const minTime = new Promise(r => setTimeout(r, 1500));
+  const minTime = new Promise(r => setTimeout(r, 5000));
   const imgLoad = new Promise(r => {
     srcs.forEach(src => {
       const img = new Image();
@@ -3299,10 +3309,10 @@ function preloadAndStart(){
 
 document.getElementById('nfcScanBtn').addEventListener('click', startNfcScan);
 document.getElementById('nfcTestBtn').addEventListener('click', ()=>{
-  /* 개발용: 현재 아티스트의 첫 번째 팩을 바로 해금 */
-  const pack = PACKS.find(p=>p.artistId===S.currentArtist);
+  /* 아직 해금되지 않은 첫 번째 팩을 해금 */
+  const pack = PACKS.find(p=>!S.unlockedPacks.includes(p.id));
   if(pack) unlockPack(pack.id);
-  else showToast('해금할 팩이 없어요');
+  else showToast('모든 아지트가 열려있어요 🎉');
 });
 
 /* ══ 초기화 ══ */
