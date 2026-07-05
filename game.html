@@ -1807,7 +1807,9 @@ function buildArtist(){
   stopWalkAnim();
   const oldA=document.getElementById('artistActor'); if(oldA) oldA.remove();
   const a=curA(); if(!a) return;
+  if(a.x===undefined){ const t=randTarget(); a.x=t.x; a.y=t.y; a.tx=t.x; a.ty=t.y; a.dx=0; a.dy=0; }
   artistEl=document.createElement('div'); artistEl.id='artistActor'; artistEl.className='artist-actor';
+  artistEl.style.touchAction='manipulation';
   artistEl.style.left=`${a.x}%`; artistEl.style.top=`${a.y}%`;
   artistEl.style.setProperty('--depth',String(Math.round(a.y)));
 
@@ -1839,7 +1841,7 @@ function buildArtist(){
 
 
 /* ══ 플레이어 ══ */
-const player={x:30,y:62,tx:30,ty:62,dx:0,dy:0};
+const player={x:240/402*100,y:518/874*100,tx:240/402*100,ty:518/874*100,dx:0,dy:0};
 let playerEl=null, playerSpriteEl=null, playerWalkTimer=null, playerWalkIdx=0;
 
 function buildPlayer(){
@@ -2282,8 +2284,8 @@ let letterDragGhostEl=null;
 function startStorageDrag(e, type, id, visual, writtenData, writtenIdx){
   e.preventDefault();
   dragState={type,id,writtenData,writtenIdx};
+  closeSheet();
   if(type==='writtenGift'){
-    closeSheet();
     /* 편지/포춘쿠키 paper ghost */
     if(letterDragGhostEl) letterDragGhostEl.remove();
     const isFortune=id==='fortune';
@@ -2622,7 +2624,7 @@ function renderAjitList(){
       ${a.id===S.currentArtist?'<div class="ajit-now">현재</div>':''}`;
     card.addEventListener('click',()=>{
       S.currentArtist=a.id;
-      const spawnX=155/402*100, spawnY=487/874*100;
+      const spawnX=240/402*100, spawnY=518/874*100;
       player.x=spawnX; player.y=spawnY; player.tx=spawnX; player.ty=spawnY; player.dx=0; player.dy=0;
       stopPlayerWalk();
       buildArtist();renderHud();updateRoomLock();closeSheet();
@@ -2633,12 +2635,12 @@ function renderAjitList(){
     list.appendChild(card);
   });
 }
-function showNfcSplash(){
+function showNfcSplash(onDone){
   const a=curA(); if(!a) return;
   const splash=document.createElement('div'); splash.className='nfc-splash';
   splash.innerHTML=`<div class="nfc-splash-inner"><div class="nfc-splash-icon">✨</div><div class="nfc-splash-text">${a.fullName}의<br>아지트가 열렸어요!</div></div>`;
   document.getElementById('app').appendChild(splash);
-  setTimeout(()=>splash.remove(),2000);
+  setTimeout(()=>{ splash.remove(); if(onDone) onDone(); },2000);
   playSFX();
 }
 async function startNFC(){
@@ -3183,7 +3185,7 @@ function unlockPack(packId){
   const pack = PACKS.find(p=>p.id===packId);
   /* 해금된 아티스트 아지트로 즉시 이동 */
   if(pack?.artistId) S.currentArtist = pack.artistId;
-  const spawnX=155/402*100, spawnY=487/874*100;
+  const spawnX=240/402*100, spawnY=518/874*100;
   player.x=spawnX; player.y=spawnY; player.tx=spawnX; player.ty=spawnY; player.dx=0; player.dy=0;
   stopPlayerWalk();
   saveGame();
@@ -3191,9 +3193,8 @@ function unlockPack(packId){
   const bgEl=document.querySelector('.room-bg');
   if(bgEl.complete && bgEl.naturalWidth) renderFurniture();
   else bgEl.addEventListener('load', ()=>renderFurniture(), {once:true});
-  showNfcSplash();
+  showNfcSplash(!S.tutorialDone ? ()=>startTutorial() : null);
   showToast(`🎉 ${pack?.name||'아지트'} 해금!`);
-  if(!S.tutorialDone) setTimeout(()=>startTutorial(), 2200);
 }
 
 /* ══ 튜토리얼 ══ */
@@ -3286,16 +3287,13 @@ function preloadAndStart(){
     });
   });
   Promise.all([minTime, imgLoad, document.fonts.ready]).then(() => {
+    if(!S.playerProfile.name) window._openSetup();
+    else {
+      window._updateProfileLabel();
+      if(!S.tutorialDone && S.unlockedPacks.length > 0) startTutorial();
+      else if(S.tutorialDone) checkDailyLogin();
+    }
     hideLoadingScreen();
-    setTimeout(() => {
-      if(!S.playerProfile.name) window._openSetup();
-      else {
-        window._updateProfileLabel();
-        if(!S.tutorialDone && S.unlockedPacks.length > 0) startTutorial();
-        else if(S.tutorialDone) checkDailyLogin();
-        /* 팩 미해금 상태면 NFC 잠금 화면이 보이므로 튜토리얼은 해금 후 자동 실행 */
-      }
-    }, 450);
   });
 }
 
