@@ -1823,6 +1823,7 @@ function buildArtist(){
     if(_artistDoubleTapTimer){
       clearTimeout(_artistDoubleTapTimer);
       _artistDoubleTapTimer=null;
+      try{ artistEl.setPointerCapture(e.pointerId); }catch(_){}
       e.preventDefault();
       setTimeout(()=>openDialogSheet(), 20);
     } else {
