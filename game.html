@@ -725,12 +725,6 @@
       white-space: pre-wrap;
       z-index: 2;
     }
-    .tut-tap-hint {
-      position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
-      color: rgba(255,255,255,0.55); font-family:'BMHANNA',sans-serif;
-      font-size: 12px; pointer-events: none; z-index: 2;
-    }
-
     #nfcLockOverlay {
       position:absolute; inset:0; z-index:200;
       background:rgba(20,10,0,.72); backdrop-filter:blur(6px);
@@ -772,7 +766,6 @@
   <div id="tutorialOverlay">
     <div class="tut-spotlight" id="tutSpotlight"></div>
     <div class="tut-bubble" id="tutBubble"></div>
-    <div class="tut-tap-hint">화면을 탭하면 다음으로 넘어가요</div>
   </div>
 
   <!-- NFC 잠금 오버레이 -->
@@ -1804,6 +1797,7 @@ function curWritten(){
   return S.writtenGifts[S.currentArtist];
 }
 
+let _artistDoubleTapTimer = null;
 function buildArtist(){
   stopWalkAnim();
   const oldA=document.getElementById('artistActor'); if(oldA) oldA.remove();
@@ -1821,23 +1815,24 @@ function buildArtist(){
   artistEl.append(spriteEl);
   artistLayer.appendChild(artistEl);
 
-  let artistLastTap=0;
   artistEl.addEventListener('click', e=>e.stopPropagation(), {capture:true});
   artistEl.addEventListener('pointerdown',e=>{
     e.stopPropagation();
     if(dragState?.type==='writtenGift'){ const s=dragState; clearWrittenDrag(); deliverWritableGift(s.id,s.writtenData.text); setTimeout(()=>renderStorage(),100); return; }
     if(S.giftMode){deliverGift();return;}
-    spriteEl.style.transform='scaleX(1)';
-    const now=Date.now();
-    if(now-artistLastTap<500){
-      artistLastTap=0;
+    if(_artistDoubleTapTimer){
+      clearTimeout(_artistDoubleTapTimer);
+      _artistDoubleTapTimer=null;
       e.preventDefault();
-      setTimeout(()=>openDialogSheet(), 10);
+      setTimeout(()=>openDialogSheet(), 20);
     } else {
-      artistLastTap=now;
-      playTapSFX();
-      playTouchReaction();
-      tapReaction(a);
+      _artistDoubleTapTimer=setTimeout(()=>{
+        _artistDoubleTapTimer=null;
+        spriteEl.style.transform='scaleX(1)';
+        playTapSFX();
+        playTouchReaction();
+        tapReaction(a);
+      }, 350);
     }
   });
 }
@@ -2287,7 +2282,10 @@ let letterDragGhostEl=null;
 function startStorageDrag(e, type, id, visual, writtenData, writtenIdx){
   e.preventDefault();
   dragState={type,id,writtenData,writtenIdx};
-  closeSheet();
+  document.getElementById('storageSheet')?.classList.remove('open');
+  document.getElementById('backdrop')?.classList.remove('show');
+  document.querySelector('.bottom-nav')?.classList.remove('sheet-open');
+  S.activeSheet=null;
   if(type==='writtenGift'){
     /* 편지/포춘쿠키 paper ghost */
     if(letterDragGhostEl) letterDragGhostEl.remove();
@@ -3214,7 +3212,6 @@ const TUTORIAL_STEPS = [
   { selector:'[data-sheet="shopSheet"]',   shape:'circle', pos:'top',    text:'재화로 아티스트에게 주는 선물,\n아지트를 꾸밀 수 있는 가구,\n그리고 음악을 구매해보세요' },
   { selector:'[data-sheet="storageSheet"]',shape:'circle', pos:'top',    text:'아티스트에게 선물을 주거나,\n아지트를 꾸며보세요.\n선물과 가구를 드래그해보세요' },
   { selector:'[data-sheet="ajitSheet"]',   shape:'circle', pos:'top',    text:'열린 아지트를 이동해보세요.\n새로운 아지트를 열고 싶다면\n포토카드를 스캔하세요' },
-  { selector:'#roomStage',            shape:'rect',   pos:'center', text:'눌러서 자유롭게 이동해보세요' },
   { selector:'#artistActor',          shape:'circle', pos:'bottom', text:'탭하면 반응,\n더블탭하면 대화를 할 수 있어요' },
 ];
 let tutStep = 0;
