@@ -2115,6 +2115,7 @@ function placeFurniture(id){
 const backdrop=document.getElementById('backdrop');
 const bottomNav=document.querySelector('.bottom-nav');
 function openSheet(id){
+  _backdropGuard=true; setTimeout(()=>{ _backdropGuard=false; },400);
   if(S.activeSheet&&S.activeSheet!==id) document.getElementById(S.activeSheet)?.classList.remove('open');
   S.activeSheet=id;
   document.getElementById(id).classList.add('open');
@@ -2130,7 +2131,8 @@ function closeSheet(){
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
   S.activeSheet=null;
 }
-backdrop.addEventListener('click',closeSheet);
+let _backdropGuard=false;
+backdrop.addEventListener('click',()=>{ if(_backdropGuard) return; closeSheet(); });
 document.querySelectorAll('[data-close]').forEach(btn=>btn.addEventListener('click',closeSheet));
 document.getElementById('dialogClose').addEventListener('click',()=>{ S.dialogue.active=false; closeSheet(); });
 document.querySelectorAll('[data-sheet]').forEach(btn=>{
