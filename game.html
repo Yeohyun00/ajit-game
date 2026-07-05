@@ -691,25 +691,22 @@
       display: none;
     }
     #tutorialOverlay.active { display: block; }
-    .tut-dark {
-      position: absolute; inset: 0;
-      background: rgba(0,0,0,0.68);
-      pointer-events: all;
-    }
     .tut-spotlight {
       position: absolute;
       pointer-events: none;
       box-sizing: border-box;
+      background: transparent;
+      z-index: 1;
     }
     .tut-spotlight.rect {
       border-radius: 14px;
       box-shadow: 0 0 0 9999px rgba(0,0,0,0.68);
-      border: 2.5px solid rgba(255,255,255,0.5);
+      outline: 2.5px solid rgba(255,255,255,0.45);
     }
     .tut-spotlight.circle {
       border-radius: 50%;
       box-shadow: 0 0 0 9999px rgba(0,0,0,0.68);
-      border: 2.5px solid rgba(255,255,255,0.5);
+      outline: 2.5px solid rgba(255,255,255,0.45);
     }
     .tut-bubble {
       position: absolute;
@@ -722,28 +719,15 @@
       color: #2a1a0a;
       max-width: 260px;
       text-align: center;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.35);
       pointer-events: none;
       white-space: pre-wrap;
-    }
-    .tut-bubble::after {
-      content: '';
-      position: absolute;
-      width: 0; height: 0;
-      border: 8px solid transparent;
-    }
-    .tut-bubble.arrow-top::after {
-      top: -16px; left: 50%; transform: translateX(-50%);
-      border-bottom-color: #fff; border-top: none;
-    }
-    .tut-bubble.arrow-bottom::after {
-      bottom: -16px; left: 50%; transform: translateX(-50%);
-      border-top-color: #fff; border-bottom: none;
+      z-index: 2;
     }
     .tut-tap-hint {
       position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
       color: rgba(255,255,255,0.55); font-family:'BMHANNAAir',sans-serif;
-      font-size: 12px; pointer-events: none;
+      font-size: 12px; pointer-events: none; z-index: 2;
     }
 
     #nfcLockOverlay {
@@ -785,7 +769,6 @@
 
   <!-- 튜토리얼 오버레이 -->
   <div id="tutorialOverlay">
-    <div class="tut-dark" id="tutDark"></div>
     <div class="tut-spotlight" id="tutSpotlight"></div>
     <div class="tut-bubble" id="tutBubble"></div>
     <div class="tut-tap-hint">화면을 탭하면 다음으로 넘어가요</div>
@@ -3242,6 +3225,7 @@ function endTutorial(){
   document.getElementById('tutorialOverlay').removeEventListener('pointerdown', advanceTutorial);
   S.tutorialDone = true;
   saveGame();
+  setTimeout(()=>checkDailyLogin(), 400);
 }
 function showTutStep(idx){
   const step = TUTORIAL_STEPS[idx];
@@ -3250,7 +3234,6 @@ function showTutStep(idx){
   const target = document.querySelector(step.selector);
   const spotlight = document.getElementById('tutSpotlight');
   const bubble = document.getElementById('tutBubble');
-  bubble.className = 'tut-bubble';
   if(!target){ advanceTutorial(); return; }
   const tr = target.getBoundingClientRect();
   const pad = step.shape === 'circle' ? 12 : 10;
@@ -3261,22 +3244,16 @@ function showTutStep(idx){
   spotlight.className = 'tut-spotlight ' + step.shape;
   spotlight.style.cssText = `left:${left}px;top:${top}px;width:${w}px;height:${h}px;`;
   bubble.textContent = step.text;
+  const bw = 260;
+  let bLeft = left + w/2 - bw/2;
+  bLeft = Math.max(8, Math.min(ar.width - bw - 8, bLeft));
   if(step.pos === 'bottom'){
-    bubble.classList.add('arrow-top');
-    const bw = 260;
-    let bLeft = left + w/2 - bw/2;
-    bLeft = Math.max(8, Math.min(ar.width - bw - 8, bLeft));
     bubble.style.cssText = `left:${bLeft}px;top:${top + h + 18}px;width:${bw}px;`;
   } else if(step.pos === 'top'){
-    bubble.classList.add('arrow-bottom');
-    const bw = 260;
-    let bLeft = left + w/2 - bw/2;
-    bLeft = Math.max(8, Math.min(ar.width - bw - 8, bLeft));
-    bubble.style.cssText = `left:${bLeft}px;bottom:${ar.height - top + 18}px;width:${bw}px;`;
+    let bTop = top - 18;
+    bubble.style.cssText = `left:${bLeft}px;top:${Math.max(8, bTop - 90)}px;width:${bw}px;`;
   } else {
-    const bw = 260;
-    let bLeft = ar.width/2 - bw/2;
-    let bTop  = top + h + 18;
+    let bTop = top + h + 18;
     if(bTop + 100 > ar.height) bTop = top - 120;
     bubble.style.cssText = `left:${bLeft}px;top:${bTop}px;width:${bw}px;`;
   }
@@ -3316,6 +3293,7 @@ function preloadAndStart(){
       else {
         window._updateProfileLabel();
         if(!S.tutorialDone) startTutorial();
+        else checkDailyLogin();
       }
     }, 450);
   });
@@ -3331,7 +3309,7 @@ document.getElementById('nfcTestBtn').addEventListener('click', ()=>{
 
 /* ══ 초기화 ══ */
 loadGame();
-buildArtist(); buildPlayer(); renderHud(); renderFurniture(); schedWander(); loop(); checkDailyLogin();
+buildArtist(); buildPlayer(); renderHud(); renderFurniture(); schedWander(); loop();
 updateRoomLock();
 preloadAndStart();
 
