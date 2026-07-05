@@ -653,6 +653,99 @@
       font-family: inherit;
     }
     /* ══ NFC 잠금 오버레이 ══ */
+    /* ══ 로딩 화면 ══ */
+    #loadingScreen {
+      position: absolute; inset: 0; z-index: 9999;
+      background: #fff;
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+      padding-bottom: 80px;
+      overflow: hidden;
+    }
+    #loadingScreen.hidden { display: none; }
+    .loading-bg-img {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; object-position: center;
+    }
+    .loading-dots {
+      position: relative; z-index: 2;
+      display: flex; gap: 10px; align-items: center;
+    }
+    .loading-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #c49a5a;
+      opacity: 0;
+      animation: dotAppear 1.2s ease-in-out infinite;
+    }
+    .loading-dot:nth-child(1) { animation-delay: 0s; }
+    .loading-dot:nth-child(2) { animation-delay: 0.25s; }
+    .loading-dot:nth-child(3) { animation-delay: 0.5s; }
+    @keyframes dotAppear {
+      0%,100% { opacity:0; transform:scale(0.7); }
+      40%,60% { opacity:1; transform:scale(1); }
+    }
+
+    /* ══ 튜토리얼 오버레이 ══ */
+    #tutorialOverlay {
+      position: absolute; inset: 0; z-index: 5000;
+      pointer-events: all;
+      display: none;
+    }
+    #tutorialOverlay.active { display: block; }
+    .tut-dark {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.68);
+      pointer-events: all;
+    }
+    .tut-spotlight {
+      position: absolute;
+      pointer-events: none;
+      box-sizing: border-box;
+    }
+    .tut-spotlight.rect {
+      border-radius: 14px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.68);
+      border: 2.5px solid rgba(255,255,255,0.5);
+    }
+    .tut-spotlight.circle {
+      border-radius: 50%;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.68);
+      border: 2.5px solid rgba(255,255,255,0.5);
+    }
+    .tut-bubble {
+      position: absolute;
+      background: #fff;
+      border-radius: 16px;
+      padding: 14px 18px;
+      font-family: 'BMHANNAAir', sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #2a1a0a;
+      max-width: 260px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      pointer-events: none;
+      white-space: pre-wrap;
+    }
+    .tut-bubble::after {
+      content: '';
+      position: absolute;
+      width: 0; height: 0;
+      border: 8px solid transparent;
+    }
+    .tut-bubble.arrow-top::after {
+      top: -16px; left: 50%; transform: translateX(-50%);
+      border-bottom-color: #fff; border-top: none;
+    }
+    .tut-bubble.arrow-bottom::after {
+      bottom: -16px; left: 50%; transform: translateX(-50%);
+      border-top-color: #fff; border-bottom: none;
+    }
+    .tut-tap-hint {
+      position: absolute; bottom: 36px; left: 50%; transform: translateX(-50%);
+      color: rgba(255,255,255,0.55); font-family:'BMHANNAAir',sans-serif;
+      font-size: 12px; pointer-events: none;
+    }
+
     #nfcLockOverlay {
       position:absolute; inset:0; z-index:200;
       background:rgba(20,10,0,.72); backdrop-filter:blur(6px);
@@ -670,15 +763,33 @@
       cursor:pointer; box-shadow:0 4px 18px rgba(180,90,30,.45);
     }
     .nfc-test-btn {
-      padding:10px 20px; border:1.5px solid rgba(255,255,255,.3); border-radius:12px;
-      background:transparent; color:rgba(255,255,255,.6);
-      font-family:inherit; font-size:12px; cursor:pointer;
+      background:none; border:none; padding:0;
+      color:rgba(255,255,255,.45); font-family:inherit; font-size:12px;
+      cursor:pointer; text-decoration:underline; text-underline-offset:3px;
     }
     .nfc-status { font-size:12px; color:rgba(255,255,255,.5); min-height:18px; text-align:center; }
   </style>
 </head>
 <body>
 <main class="app" id="app">
+
+  <!-- 로딩 화면 -->
+  <div id="loadingScreen">
+    <img src="assets/초기랜딩화면.png" class="loading-bg-img" alt="" onerror="this.style.display='none'">
+    <div class="loading-dots">
+      <div class="loading-dot"></div>
+      <div class="loading-dot"></div>
+      <div class="loading-dot"></div>
+    </div>
+  </div>
+
+  <!-- 튜토리얼 오버레이 -->
+  <div id="tutorialOverlay">
+    <div class="tut-dark" id="tutDark"></div>
+    <div class="tut-spotlight" id="tutSpotlight"></div>
+    <div class="tut-bubble" id="tutBubble"></div>
+    <div class="tut-tap-hint">화면을 탭하면 다음으로 넘어가요</div>
+  </div>
 
   <!-- NFC 잠금 오버레이 -->
   <div id="nfcLockOverlay" class="hidden">
@@ -687,7 +798,7 @@
     <div class="nfc-lock-sub">가지고 계신 NFC 포토카드를 스캔하면<br>아지트가 열려요!</div>
     <button class="nfc-scan-btn" id="nfcScanBtn">NFC 스캔 시작</button>
     <div class="nfc-status" id="nfcStatus"></div>
-    <button class="nfc-test-btn" id="nfcTestBtn">개발용 테스트 해금</button>
+    <button class="nfc-test-btn" id="nfcTestBtn">스캔없이 체험할게요</button>
   </div>
 
   <!-- 방 배경 -->
@@ -1535,7 +1646,8 @@ const S = {
   giftMode:null, activeSheet:null,
   writtenGifts:{ dio:[], kai:[] },
   playerProfile:{ name:'', gender:'f', appearance:0 },
-  unlockedPacks: [], // 해금된 팩 ID 배열
+  unlockedPacks: [],
+  tutorialDone: false,
 };
 
 /* ══ 걷기 범위: 4점 볼록다각형 (이미지 픽셀 402×874 → % 변환) ══ */
@@ -1631,7 +1743,6 @@ const ARTIST_ANIM = {
     walk:  ['assets/카이_걷기_1.png','assets/카이_걷기_2.png','assets/카이_걷기_3.png','assets/카이_걷기_4.png'],
     startle: 'assets/카이_깜짝.png',
     smile: ['assets/카이_웃음_1.png','assets/카이_웃음_2.png','assets/카이_웃음_3.png','assets/카이_웃음_4.png'],
-    reactionScale: 1.15,
   },
 };
 function curAnim(){ return ARTIST_ANIM[S.currentArtist] || ARTIST_ANIM.dio; }
@@ -2189,6 +2300,7 @@ function startStorageDrag(e, type, id, visual, writtenData, writtenIdx){
   e.preventDefault();
   dragState={type,id,writtenData,writtenIdx};
   if(type==='writtenGift'){
+    closeSheet();
     /* 편지/포춘쿠키 paper ghost */
     if(letterDragGhostEl) letterDragGhostEl.remove();
     const isFortune=id==='fortune';
@@ -2769,6 +2881,7 @@ function saveGame(){
     writtenGifts: S.writtenGifts,
     playerProfile: S.playerProfile,
     unlockedPacks: S.unlockedPacks,
+    tutorialDone: S.tutorialDone,
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(data));
 }
@@ -2814,6 +2927,7 @@ function loadGame(){
     else if(data.writtenGifts && typeof data.writtenGifts==='object'){ ['dio','kai'].forEach(aid=>{ if(Array.isArray(data.writtenGifts[aid])) S.writtenGifts[aid]=data.writtenGifts[aid]; }); }
     if(data.playerProfile) Object.assign(S.playerProfile, data.playerProfile);
     if(Array.isArray(data.unlockedPacks)) S.unlockedPacks=data.unlockedPacks;
+    if(data.tutorialDone) S.tutorialDone=true;
     if(S.coins < 9999999) S.coins=9999999;
   }catch(e){ console.warn('세이브 불러오기 실패',e); }
 }
@@ -2913,11 +3027,13 @@ closeSheet=function(){ _origCloseSheet(); saveGame(); };
     const name=(nameInput.value||'').trim();
     if(!name){ nameInput.focus(); nameInput.style.borderColor='#c8683a'; return; }
     nameInput.style.borderColor='';
+    const isFirst = !S.playerProfile.name;
     S.playerProfile={ name, gender:setupGender, appearance:setupApp };
     saveGame();
     buildPlayer();
     updateProfileLabel();
     closeSetup();
+    if(isFirst && !S.tutorialDone) setTimeout(()=>startTutorial(), 300);
   });
 
   function updateProfileLabel(){
@@ -3098,6 +3214,113 @@ function unlockPack(packId){
   showToast(`🎉 ${pack?.name||'아지트'} 해금!`);
 }
 
+/* ══ 튜토리얼 ══ */
+const TUTORIAL_STEPS = [
+  { selector:'.fp-chip',              shape:'rect',   pos:'bottom', text:'아티스트와 대화하거나, 선물을 주면\n친밀도가 증가해요!\n친밀도 레벨을 상승시키고 코인을 얻어보세요' },
+  { selector:'.coin-chip',            shape:'rect',   pos:'bottom', text:'코인으로 아지트를 꾸미고\n선물을 구매할 수 있어요!' },
+  { selector:'[data-sheet="shopSheet"]',   shape:'circle', pos:'top',    text:'재화로 아티스트에게 주는 선물,\n아지트를 꾸밀 수 있는 가구,\n그리고 음악을 구매해보세요' },
+  { selector:'[data-sheet="storageSheet"]',shape:'circle', pos:'top',    text:'아티스트에게 선물을 주거나,\n아지트를 꾸며보세요.\n선물과 가구를 드래그해보세요' },
+  { selector:'[data-sheet="ajitSheet"]',   shape:'circle', pos:'top',    text:'열린 아지트를 이동해보세요.\n새로운 아지트를 열고 싶다면\n포토카드를 스캔하세요' },
+  { selector:'#roomStage',            shape:'rect',   pos:'center', text:'눌러서 자유롭게 이동해보세요' },
+  { selector:'#artistActor',          shape:'circle', pos:'bottom', text:'탭하면 반응,\n더블탭하면 대화를 할 수 있어요' },
+];
+let tutStep = 0;
+function startTutorial(){
+  if(S.tutorialDone) return;
+  tutStep = 0;
+  document.getElementById('tutorialOverlay').classList.add('active');
+  showTutStep(0);
+  document.getElementById('tutorialOverlay').addEventListener('pointerdown', advanceTutorial, {passive:true});
+}
+function advanceTutorial(){
+  tutStep++;
+  if(tutStep >= TUTORIAL_STEPS.length){ endTutorial(); return; }
+  showTutStep(tutStep);
+}
+function endTutorial(){
+  document.getElementById('tutorialOverlay').classList.remove('active');
+  document.getElementById('tutorialOverlay').removeEventListener('pointerdown', advanceTutorial);
+  S.tutorialDone = true;
+  saveGame();
+}
+function showTutStep(idx){
+  const step = TUTORIAL_STEPS[idx];
+  const app = document.getElementById('app');
+  const ar = app.getBoundingClientRect();
+  const target = document.querySelector(step.selector);
+  const spotlight = document.getElementById('tutSpotlight');
+  const bubble = document.getElementById('tutBubble');
+  bubble.className = 'tut-bubble';
+  if(!target){ advanceTutorial(); return; }
+  const tr = target.getBoundingClientRect();
+  const pad = step.shape === 'circle' ? 12 : 10;
+  const left = tr.left - ar.left - pad;
+  const top  = tr.top  - ar.top  - pad;
+  const w    = tr.width  + pad * 2;
+  const h    = tr.height + pad * 2;
+  spotlight.className = 'tut-spotlight ' + step.shape;
+  spotlight.style.cssText = `left:${left}px;top:${top}px;width:${w}px;height:${h}px;`;
+  bubble.textContent = step.text;
+  if(step.pos === 'bottom'){
+    bubble.classList.add('arrow-top');
+    const bw = 260;
+    let bLeft = left + w/2 - bw/2;
+    bLeft = Math.max(8, Math.min(ar.width - bw - 8, bLeft));
+    bubble.style.cssText = `left:${bLeft}px;top:${top + h + 18}px;width:${bw}px;`;
+  } else if(step.pos === 'top'){
+    bubble.classList.add('arrow-bottom');
+    const bw = 260;
+    let bLeft = left + w/2 - bw/2;
+    bLeft = Math.max(8, Math.min(ar.width - bw - 8, bLeft));
+    bubble.style.cssText = `left:${bLeft}px;bottom:${ar.height - top + 18}px;width:${bw}px;`;
+  } else {
+    const bw = 260;
+    let bLeft = ar.width/2 - bw/2;
+    let bTop  = top + h + 18;
+    if(bTop + 100 > ar.height) bTop = top - 120;
+    bubble.style.cssText = `left:${bLeft}px;top:${bTop}px;width:${bw}px;`;
+  }
+}
+
+/* ══ 로딩 화면 ══ */
+function hideLoadingScreen(){
+  const el = document.getElementById('loadingScreen');
+  el.style.transition = 'opacity 0.4s';
+  el.style.opacity = '0';
+  setTimeout(() => el.classList.add('hidden'), 420);
+}
+function preloadAndStart(){
+  const srcs = [
+    'assets/배경.png','assets/카이_배경.png','assets/카이_배경_2.png',
+    'assets/디오_앞.png','assets/디오_깜짝.png',
+    'assets/디오_웃음_1.png','assets/디오_웃음_2.png','assets/디오_웃음_3.png','assets/디오_웃음_4.png',
+    'assets/디오_걷기_1.png','assets/디오_걷기_2.png','assets/디오_걷기_3.png','assets/디오_걷기_4.png',
+    'assets/카이_앞.png','assets/카이_깜짝.png',
+    'assets/카이_웃음_1.png','assets/카이_웃음_2.png','assets/카이_웃음_3.png','assets/카이_웃음_4.png',
+    'assets/카이_걷기_1.png','assets/카이_걷기_2.png','assets/카이_걷기_3.png','assets/카이_걷기_4.png',
+    'assets/초기랜딩화면.png',
+  ];
+  let loaded = 0;
+  const minTime = new Promise(r => setTimeout(r, 1500));
+  const imgLoad = new Promise(r => {
+    srcs.forEach(src => {
+      const img = new Image();
+      img.onload = img.onerror = () => { if(++loaded >= srcs.length) r(); };
+      img.src = src;
+    });
+  });
+  Promise.all([minTime, imgLoad, document.fonts.ready]).then(() => {
+    hideLoadingScreen();
+    setTimeout(() => {
+      if(!S.playerProfile.name) window._openSetup();
+      else {
+        window._updateProfileLabel();
+        if(!S.tutorialDone) startTutorial();
+      }
+    }, 450);
+  });
+}
+
 document.getElementById('nfcScanBtn').addEventListener('click', startNfcScan);
 document.getElementById('nfcTestBtn').addEventListener('click', ()=>{
   /* 개발용: 현재 아티스트의 첫 번째 팩을 바로 해금 */
@@ -3110,9 +3333,7 @@ document.getElementById('nfcTestBtn').addEventListener('click', ()=>{
 loadGame();
 buildArtist(); buildPlayer(); renderHud(); renderFurniture(); schedWander(); loop(); checkDailyLogin();
 updateRoomLock();
-/* 세이브 로드 후 프로필 상태 확인 */
-if(!S.playerProfile.name) window._openSetup();
-else window._updateProfileLabel();
+preloadAndStart();
 
 /* 화면 크기 바뀌면 가구 위치 재계산 (가로/세로 회전, 리사이즈) */
 window.addEventListener('resize', ()=>renderFurniture());
