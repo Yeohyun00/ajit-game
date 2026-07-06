@@ -766,7 +766,7 @@
 
   <!-- 로딩 화면 -->
   <div id="loadingScreen">
-    <object data="assets/기본홈.svg" type="image/svg+xml" class="loading-bg-img" aria-hidden="true"></object>
+    <img src="assets/기본홈.svg" class="loading-bg-img" alt="" onerror="this.style.display='none'">
     <div class="loading-dots">
       <div class="loading-dot"></div>
       <div class="loading-dot"></div>
@@ -1638,6 +1638,7 @@ const S = {
   unlockedPacks: [],
   tutorialDone: false,
   musicTutDone: false,
+  furnTutDone: false,
 };
 
 /* ══ 걷기 범위: 4점 볼록다각형 (이미지 픽셀 402×874 → % 변환) ══ */
@@ -1824,8 +1825,9 @@ function buildArtist(){
   const oldA=document.getElementById('artistActor'); if(oldA) oldA.remove();
   const a=curA(); if(!a) return;
   if(a.x===undefined){
-    if(a.id==='dio'){ a.x=173/402*100; a.y=493/874*100; }
-    else { const t=randTarget(a.id); a.x=t.x; a.y=t.y; }
+    const Q=QUADS[a.id]||QUADS.dio;
+    a.x=Q.reduce((s,p)=>s+p.x,0)/Q.length;
+    a.y=Q.reduce((s,p)=>s+p.y,0)/Q.length;
     a.dx=0; a.dy=0;
   }
   { const t=randTarget(a.id); a.tx=t.x; a.ty=t.y; }
@@ -2033,17 +2035,11 @@ function moveNpc(){
   }
   const step=Math.min(SPD,dist);
   const nx=a.x+(ddx/dist)*step, ny=a.y+(ddy/dist)*step;
-  if(isInQuad(nx,ny) && !tooClose(nx,ny,player)){
+  if(!tooClose(nx,ny,player)){
     a.dx=nx-a.x; a.dy=ny-a.y; a.x=nx; a.y=ny;
     syncArtist();
-  } else if(tooClose(nx,ny,player)){
-    a.dx=0; a.dy=0; stopWalkAnim();
-    // 플레이어가 비켜날 때까지 대기 — schedWander가 다음 목표 설정
   } else {
-    stopWalkAnim();
-    let t; let tries=0;
-    do { t=randTarget(a.id); tries++; } while(tries<40 && tooClose(t.x,t.y,player));
-    a.tx=t.x; a.ty=t.y;
+    a.dx=0; a.dy=0; stopWalkAnim();
   }
 }
 function loop(){moveNpc();movePlayer();requestAnimationFrame(loop);}
@@ -2176,6 +2172,7 @@ function placeFurniture(id){
   setTimeout(()=>showArtistBubble(`${item.name}, ${phrase}`, 3500), 400);
   setTimeout(()=>{ gainFP(a,item.fpGain); },600);
   if(item.isLpPlayer && !S.musicTutDone) setTimeout(()=>showMusicTutorial(),1500);
+  if(!S.furnTutDone) setTimeout(()=>showFurnTutorial(id),2000);
 }
 
 function showMusicTutorial(){
@@ -2196,6 +2193,32 @@ function showMusicTutorial(){
   spot.className='tut-spotlight circle';
   spot.style.cssText=`left:${appCx-r}px;top:${appCy-r}px;width:${r*2}px;height:${r*2}px;`;
   bub.textContent='상점에서 LP를 구입하고 이것을 탭하면\n아티스트와 함께 음악을 들을 수 있어요.';
+  const bw=260;
+  const bLeft=Math.max(8,Math.min(ar.width-bw-8,appCx-bw/2));
+  const bTop=appCy-r-120>0?appCy-r-120:appCy+r+18;
+  bub.style.cssText=`left:${bLeft}px;top:${bTop}px;width:${bw}px;`;
+  tut.classList.add('active');
+  const done=()=>{ tut.classList.remove('active'); tut.removeEventListener('pointerdown',done); };
+  tut.addEventListener('pointerdown',done,{passive:true});
+}
+
+function showFurnTutorial(id){
+  if(S.furnTutDone) return;
+  const item=FURNITURE.find(f=>f.id===id);
+  if(!item||S.inventory.furniture[id]!=='placed') return;
+  S.furnTutDone=true; saveGame();
+  const {cx,cy,fw}=furnPx(item);
+  const stage=document.getElementById('roomStage');
+  const sr=stage.getBoundingClientRect();
+  const ar=document.getElementById('app').getBoundingClientRect();
+  const appCx=cx+(sr.left-ar.left), appCy=cy+(sr.top-ar.top);
+  const r=Math.max(fw*0.65,38);
+  const tut=document.getElementById('tutorialOverlay');
+  const spot=document.getElementById('tutSpotlight');
+  const bub=document.getElementById('tutBubble');
+  spot.className='tut-spotlight circle';
+  spot.style.cssText=`left:${appCx-r}px;top:${appCy-r}px;width:${r*2}px;height:${r*2}px;`;
+  bub.textContent='더블탭하면 가구를 철거해 창고에 보관할 수 있어요';
   const bw=260;
   const bLeft=Math.max(8,Math.min(ar.width-bw-8,appCx-bw/2));
   const bTop=appCy-r-120>0?appCy-r-120:appCy+r+18;
@@ -2974,6 +2997,7 @@ function saveGame(){
     unlockedPacks: S.unlockedPacks,
     tutorialDone: S.tutorialDone,
     musicTutDone: S.musicTutDone,
+    furnTutDone: S.furnTutDone,
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(data));
 }
@@ -3021,6 +3045,7 @@ function loadGame(){
     if(Array.isArray(data.unlockedPacks)) S.unlockedPacks=data.unlockedPacks;
     if(data.tutorialDone) S.tutorialDone=true;
     if(data.musicTutDone) S.musicTutDone=true;
+    if(data.furnTutDone) S.furnTutDone=true;
     if(S.coins < 9999999) S.coins=9999999;
   }catch(e){ console.warn('세이브 불러오기 실패',e); }
 }
