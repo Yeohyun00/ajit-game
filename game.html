@@ -1624,7 +1624,7 @@ function isArtistUnlocked(artistId){ return !!getUnlockedPack(artistId); }
 
 /* ══ 상태 ══ */
 const S = {
-  coins:0, currentArtist:'dio', shopTab:'gift', storageTab:'gift',
+  coins:10000, currentArtist:'dio', shopTab:'gift', storageTab:'gift',
   lastLogin:null, loginDay:0,
   inventory:{
     gifts:    { dio: Object.fromEntries(GIFTS.map(g=>[g.id,0])), kai: Object.fromEntries(GIFTS.map(g=>[g.id,0])) },
