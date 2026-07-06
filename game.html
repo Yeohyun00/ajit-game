@@ -98,6 +98,7 @@
       right: 12px;
       top: calc(var(--sat) + 66px);
       display: flex; gap: 4px; align-items: center;
+      z-index: 200;
     }
     .util-btn { background: none; border: none; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
     .util-btn img { width: 42px; height: 42px; object-fit: contain; }
@@ -765,7 +766,7 @@
 
   <!-- 로딩 화면 -->
   <div id="loadingScreen">
-    <img src="assets/기본홈.svg" class="loading-bg-img" alt="" onerror="this.style.display='none'">
+    <object data="assets/기본홈.svg" type="image/svg+xml" class="loading-bg-img" aria-hidden="true"></object>
     <div class="loading-dots">
       <div class="loading-dot"></div>
       <div class="loading-dot"></div>
@@ -815,11 +816,11 @@
       <span class="coin-val" id="hudCoins">100,000</span>
     </div>
     <!-- 촬영/설정: left:279px, top:safe+66px -->
-    <div class="util-row">
-      <button class="util-btn" id="cameraBtn"><img src="assets/촬영.png" alt="촬영"></button>
-      <button class="util-btn" id="settingsBtn"><img src="assets/설정.png" alt="설정"></button>
-    </div>
   </header>
+  <div class="util-row">
+    <button class="util-btn" id="cameraBtn"><img src="assets/촬영.png" alt="촬영"></button>
+    <button class="util-btn" id="settingsBtn"><img src="assets/설정.png" alt="설정"></button>
+  </div>
 
   <!-- 백드롭 -->
   <div class="backdrop" id="backdrop"></div>
@@ -1691,13 +1692,12 @@ function inQuad(x,y,QUAD){
 /* 쿼드 안 랜덤 좌표 (rejection sampling) — artistId로 쿼드 지정 */
 function randTarget(artistId){
   const QUAD=QUADS[artistId||S.currentArtist]||QUADS.dio;
-  const xs=QUAD.map(p=>p.x), ys=QUAD.map(p=>p.y);
-  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
-  for(let i=0;i<60;i++){
-    const x=x0+Math.random()*(x1-x0), y=y0+Math.random()*(y1-y0);
-    if(inQuad(x,y,QUAD)) return {x,y};
-  }
-  return {x:(x0+x1)/2, y:(y0+y1)/2}; // fallback: 중심점
+  // 쌍선형 보간 — convex quad 안의 점을 항상 보장
+  const [V0,V1,V2,V3]=QUAD;
+  const s=Math.random(), t=Math.random();
+  const ax=V0.x+(V1.x-V0.x)*s, ay=V0.y+(V1.y-V0.y)*s;
+  const bx=V3.x+(V2.x-V3.x)*s, by=V3.y+(V2.y-V3.y)*s;
+  return {x:ax+(bx-ax)*t, y:ay+(by-ay)*t};
 }
 
 /* ══ 플레이어 외형 데이터 ══ */
@@ -1823,7 +1823,11 @@ function buildArtist(){
   stopWalkAnim();
   const oldA=document.getElementById('artistActor'); if(oldA) oldA.remove();
   const a=curA(); if(!a) return;
-  if(a.x===undefined){ const t=randTarget(a.id); a.x=t.x; a.y=t.y; a.dx=0; a.dy=0; }
+  if(a.x===undefined){
+    if(a.id==='dio'){ a.x=173/402*100; a.y=493/874*100; }
+    else { const t=randTarget(a.id); a.x=t.x; a.y=t.y; }
+    a.dx=0; a.dy=0;
+  }
   { const t=randTarget(a.id); a.tx=t.x; a.ty=t.y; }
   artistEl=document.createElement('div'); artistEl.id='artistActor'; artistEl.className='artist-actor';
   artistEl.style.touchAction='manipulation';
@@ -2034,10 +2038,12 @@ function moveNpc(){
     syncArtist();
   } else if(tooClose(nx,ny,player)){
     a.dx=0; a.dy=0; stopWalkAnim();
-    const t=randTarget(a.id); a.tx=t.x; a.ty=t.y;
+    // 플레이어가 비켜날 때까지 대기 — schedWander가 다음 목표 설정
   } else {
     stopWalkAnim();
-    const t=randTarget(a.id); a.tx=t.x; a.ty=t.y;
+    let t; let tries=0;
+    do { t=randTarget(a.id); tries++; } while(tries<40 && tooClose(t.x,t.y,player));
+    a.tx=t.x; a.ty=t.y;
   }
 }
 function loop(){moveNpc();movePlayer();requestAnimationFrame(loop);}
@@ -2753,10 +2759,12 @@ document.getElementById('nfcBtn').addEventListener('click',()=>{
 });
 
 /* ══ 기타 버튼 ══ */
-document.getElementById('cameraBtn').addEventListener('click', async ()=>{
+document.getElementById('cameraBtn').addEventListener('click', async (e)=>{
+  e.stopPropagation();
+  _backdropGuard=true; setTimeout(()=>{ _backdropGuard=false; },400);
   if(typeof html2canvas==='undefined'){ showToast('캡처 준비 중이에요. 잠시 후 다시 시도해주세요.'); return; }
   const appEl2=document.getElementById('app');
-  /* 캡처 직전 카메라/설정 버튼 숨김 */
+  /* 캡처 직전 카메라/설정 버튼만 숨김 — 시트는 그대로 */
   const utilRow=document.querySelector('.util-row');
   if(utilRow) utilRow.style.visibility='hidden';
   try{
@@ -3102,6 +3110,7 @@ closeSheet=function(){ _origCloseSheet(); saveGame(); };
     document.querySelectorAll('.setup-gender-btn').forEach(b=>b.classList.toggle('active',b.dataset.gender===setupGender));
     renderAppGrid();
     screen.classList.remove('hidden');
+    requestAnimationFrame(()=>window.dispatchEvent(new Event('resize')));
   }
 
   function closeSetup(){
