@@ -1636,6 +1636,7 @@ const S = {
   playerProfile:{ name:'', gender:'f', appearance:0 },
   unlockedPacks: [],
   tutorialDone: false,
+  musicTutDone: false,
 };
 
 /* ══ 걷기 범위: 4점 볼록다각형 (이미지 픽셀 402×874 → % 변환) ══ */
@@ -1813,7 +1814,8 @@ function buildArtist(){
   stopWalkAnim();
   const oldA=document.getElementById('artistActor'); if(oldA) oldA.remove();
   const a=curA(); if(!a) return;
-  if(a.x===undefined){ const t=randTarget(); a.x=t.x; a.y=t.y; a.tx=t.x; a.ty=t.y; a.dx=0; a.dy=0; }
+  if(a.x===undefined){ const t=randTarget(); a.x=t.x; a.y=t.y; a.dx=0; a.dy=0; }
+  { const t=randTarget(); a.tx=t.x; a.ty=t.y; }
   artistEl=document.createElement('div'); artistEl.id='artistActor'; artistEl.className='artist-actor';
   artistEl.style.touchAction='manipulation';
   artistEl.style.left=`${a.x}%`; artistEl.style.top=`${a.y}%`;
@@ -1832,7 +1834,7 @@ function buildArtist(){
     if(dragState?.type==='writtenGift'){ const s=dragState; clearWrittenDrag(); deliverWritableGift(s.id,s.writtenData.text); setTimeout(()=>renderStorage(),100); return; }
     if(S.giftMode){deliverGift();return;}
     const now=Date.now(), gap=now-_lastArtistTapTime;
-    if(gap>0 && gap<500){
+    if(gap>0 && gap<1500){
       _lastArtistTapTime=0;
       try{ artistEl.setPointerCapture(e.pointerId); }catch(_){}
       e.preventDefault();
@@ -1959,7 +1961,16 @@ function showArtistBubble(msg, duration=3000){
     artistEl.appendChild(bub);
   }
   bub.textContent=msg;
+  bub.style.transform='translateX(-50%)';
   bub.classList.add('show');
+  requestAnimationFrame(()=>{
+    const ar=document.getElementById('app').getBoundingClientRect();
+    const br=bub.getBoundingClientRect();
+    let shift=0;
+    if(br.left < ar.left+6) shift=ar.left+6-br.left;
+    else if(br.right > ar.right-6) shift=ar.right-6-br.right;
+    if(shift) bub.style.transform=`translateX(calc(-50% + ${shift}px))`;
+  });
   clearTimeout(artistBubbleTimer);
   artistBubbleTimer=setTimeout(()=>bub.classList.remove('show'), duration);
 }
@@ -2148,6 +2159,34 @@ function placeFurniture(id){
   const phrase=FURN_PHRASES[Math.floor(Math.random()*FURN_PHRASES.length)];
   setTimeout(()=>showArtistBubble(`${item.name}, ${phrase}`, 3500), 400);
   setTimeout(()=>{ gainFP(a,item.fpGain); },600);
+  if(item.isLpPlayer && !S.musicTutDone) setTimeout(()=>showMusicTutorial(),1500);
+}
+
+function showMusicTutorial(){
+  if(S.musicTutDone) return;
+  const lpId=S.currentArtist==='kai'?'kai_speaker':'lpplayer';
+  const item=FURNITURE.find(f=>f.id===lpId);
+  if(!item||S.inventory.furniture[lpId]!=='placed') return;
+  S.musicTutDone=true; saveGame();
+  const {cx,cy,fw}=furnPx(item);
+  const stage=document.getElementById('roomStage');
+  const sr=stage.getBoundingClientRect();
+  const ar=document.getElementById('app').getBoundingClientRect();
+  const appCx=cx+(sr.left-ar.left), appCy=cy+(sr.top-ar.top);
+  const r=Math.max(fw*0.65,38);
+  const tut=document.getElementById('tutorialOverlay');
+  const spot=document.getElementById('tutSpotlight');
+  const bub=document.getElementById('tutBubble');
+  spot.className='tut-spotlight circle';
+  spot.style.cssText=`left:${appCx-r}px;top:${appCy-r}px;width:${r*2}px;height:${r*2}px;`;
+  bub.textContent='상점에서 LP를 구입하고 이것을 탭하면\n아티스트와 함께 음악을 들을 수 있어요.';
+  const bw=260;
+  const bLeft=Math.max(8,Math.min(ar.width-bw-8,appCx-bw/2));
+  const bTop=appCy-r-120>0?appCy-r-120:appCy+r+18;
+  bub.style.cssText=`left:${bLeft}px;top:${bTop}px;width:${bw}px;`;
+  tut.classList.add('active');
+  const done=()=>{ tut.classList.remove('active'); tut.removeEventListener('pointerdown',done); };
+  tut.addEventListener('pointerdown',done,{passive:true});
 }
 
 /* ══ 시트 시스템 ══ */
@@ -2916,6 +2955,7 @@ function saveGame(){
     playerProfile: S.playerProfile,
     unlockedPacks: S.unlockedPacks,
     tutorialDone: S.tutorialDone,
+    musicTutDone: S.musicTutDone,
   };
   localStorage.setItem(SAVE_KEY, JSON.stringify(data));
 }
@@ -2962,6 +3002,7 @@ function loadGame(){
     if(data.playerProfile) Object.assign(S.playerProfile, data.playerProfile);
     if(Array.isArray(data.unlockedPacks)) S.unlockedPacks=data.unlockedPacks;
     if(data.tutorialDone) S.tutorialDone=true;
+    if(data.musicTutDone) S.musicTutDone=true;
     if(S.coins < 9999999) S.coins=9999999;
   }catch(e){ console.warn('세이브 불러오기 실패',e); }
 }
