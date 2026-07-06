@@ -738,8 +738,8 @@
       z-index: 2;
     }
     #nfcLockOverlay {
-      position:absolute; inset:0; z-index:200;
-      background:rgba(20,10,0,.72); backdrop-filter:blur(6px);
+      position:absolute; inset:0; z-index:500;
+      background:#1a0d05;
       display:flex; flex-direction:column; align-items:center; justify-content:center;
       gap:18px; padding:32px 28px; box-sizing:border-box;
     }
@@ -1549,10 +1549,10 @@ const ARTISTS = [{
 }];
 
 const GIFTS = [
-  {id:'flower',  name:'꽃다발',   file:'assets/꽃다발.png',   emoji:'💐', cost:300,  fpGain:8 },
-  {id:'letter',  name:'편지',     file:'assets/편지.png',     emoji:'✉️', cost:200,  fpGain:10, writable:true},
-  {id:'fortune', name:'포춘쿠키', file:'assets/포춘쿠키.png', emoji:'🥠', cost:300,  fpGain:10, writable:true},
-  {id:'ring',    name:'반지',     file:'assets/반지.png',     emoji:'💍', cost:1500, fpGain:30},
+  {id:'flower',  name:'꽃다발',   file:'assets/꽃다발.png',   emoji:'💐', cost:50,  fpGain:8 },
+  {id:'letter',  name:'편지',     file:'assets/편지.png',     emoji:'✉️', cost:50,  fpGain:10, writable:true},
+  {id:'fortune', name:'포춘쿠키', file:'assets/포춘쿠키.png', emoji:'🥠', cost:50,  fpGain:10, writable:true},
+  {id:'ring',    name:'반지',     file:'assets/반지.png',     emoji:'💍', cost:50, fpGain:30},
 ];
 
 
@@ -1624,7 +1624,7 @@ function isArtistUnlocked(artistId){ return !!getUnlockedPack(artistId); }
 
 /* ══ 상태 ══ */
 const S = {
-  coins:9999999, currentArtist:'dio', shopTab:'gift', storageTab:'gift',
+  coins:0, currentArtist:'dio', shopTab:'gift', storageTab:'gift',
   lastLogin:null, loginDay:0,
   inventory:{
     gifts:    { dio: Object.fromEntries(GIFTS.map(g=>[g.id,0])), kai: Object.fromEntries(GIFTS.map(g=>[g.id,0])) },
@@ -1825,10 +1825,9 @@ function buildArtist(){
   const oldA=document.getElementById('artistActor'); if(oldA) oldA.remove();
   const a=curA(); if(!a) return;
   if(a.x===undefined){
-    const Q=QUADS[a.id]||QUADS.dio;
-    a.x=Q.reduce((s,p)=>s+p.x,0)/Q.length;
-    a.y=Q.reduce((s,p)=>s+p.y,0)/Q.length;
-    a.dx=0; a.dy=0;
+    let t; let tries=0;
+    do { t=randTarget(a.id); tries++; } while(tries<60 && tooClose(t.x,t.y,player));
+    a.x=t.x; a.y=t.y; a.dx=0; a.dy=0;
   }
   { const t=randTarget(a.id); a.tx=t.x; a.ty=t.y; }
   artistEl=document.createElement('div'); artistEl.id='artistActor'; artistEl.className='artist-actor';
@@ -2205,26 +2204,29 @@ function showMusicTutorial(){
 function showFurnTutorial(id){
   if(S.furnTutDone) return;
   const item=FURNITURE.find(f=>f.id===id);
-  if(!item||S.inventory.furniture[id]!=='placed') return;
-  S.furnTutDone=true; saveGame();
+  if(!item) return;
+  const tut=document.getElementById('tutorialOverlay');
+  const spot=document.getElementById('tutSpotlight');
+  const bub=document.getElementById('tutBubble');
   const {cx,cy,fw}=furnPx(item);
   const stage=document.getElementById('roomStage');
   const sr=stage.getBoundingClientRect();
   const ar=document.getElementById('app').getBoundingClientRect();
   const appCx=cx+(sr.left-ar.left), appCy=cy+(sr.top-ar.top);
   const r=Math.max(fw*0.65,38);
-  const tut=document.getElementById('tutorialOverlay');
-  const spot=document.getElementById('tutSpotlight');
-  const bub=document.getElementById('tutBubble');
   spot.className='tut-spotlight circle';
   spot.style.cssText=`left:${appCx-r}px;top:${appCy-r}px;width:${r*2}px;height:${r*2}px;`;
-  bub.textContent='더블탭하면 가구를 철거해 창고에 보관할 수 있어요';
+  bub.textContent='더블탭하면 가구를 철거해\n창고에 보관할 수 있어요';
   const bw=260;
   const bLeft=Math.max(8,Math.min(ar.width-bw-8,appCx-bw/2));
   const bTop=appCy-r-120>0?appCy-r-120:appCy+r+18;
   bub.style.cssText=`left:${bLeft}px;top:${bTop}px;width:${bw}px;`;
   tut.classList.add('active');
-  const done=()=>{ tut.classList.remove('active'); tut.removeEventListener('pointerdown',done); };
+  const done=()=>{
+    S.furnTutDone=true; saveGame();
+    tut.classList.remove('active');
+    tut.removeEventListener('pointerdown',done);
+  };
   tut.addEventListener('pointerdown',done,{passive:true});
 }
 
@@ -3046,7 +3048,6 @@ function loadGame(){
     if(data.tutorialDone) S.tutorialDone=true;
     if(data.musicTutDone) S.musicTutDone=true;
     if(data.furnTutDone) S.furnTutDone=true;
-    if(S.coins < 9999999) S.coins=9999999;
   }catch(e){ console.warn('세이브 불러오기 실패',e); }
 }
 
