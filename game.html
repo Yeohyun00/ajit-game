@@ -363,6 +363,17 @@
     .talk-hint.show { display: block; }
     @keyframes floatBob { 0%,100%{transform:translateX(-50%)translateY(0)} 50%{transform:translateX(-50%)translateY(-4px)} }
 
+    .gift-badge {
+      position: absolute; bottom: calc(100% + 4px); left: 50%;
+      transform: translateX(-50%);
+      font-size: 22px; pointer-events: none; z-index: 65;
+      animation: giftBob .5s ease-in-out infinite alternate;
+      display: none;
+    }
+    @keyframes giftBob {
+      from { transform: translateX(-50%) translateY(0); }
+      to   { transform: translateX(-50%) translateY(-5px); }
+    }
     .speech-bubble {
       position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
       background: #fff; border-radius: 14px; padding: 9px 14px;
@@ -754,7 +765,7 @@
 
   <!-- 로딩 화면 -->
   <div id="loadingScreen">
-    <img src="assets/초기랜딩화면.png" class="loading-bg-img" alt="" onerror="this.style.display='none'">
+    <img src="assets/기본홈.svg" class="loading-bg-img" alt="" onerror="this.style.display='none'">
     <div class="loading-dots">
       <div class="loading-dot"></div>
       <div class="loading-dot"></div>
@@ -1797,7 +1808,7 @@ function curWritten(){
   return S.writtenGifts[S.currentArtist];
 }
 
-let _artistDoubleTapTimer = null;
+let _lastArtistTapTime = 0;
 function buildArtist(){
   stopWalkAnim();
   const oldA=document.getElementById('artistActor'); if(oldA) oldA.remove();
@@ -1820,20 +1831,18 @@ function buildArtist(){
     e.stopPropagation();
     if(dragState?.type==='writtenGift'){ const s=dragState; clearWrittenDrag(); deliverWritableGift(s.id,s.writtenData.text); setTimeout(()=>renderStorage(),100); return; }
     if(S.giftMode){deliverGift();return;}
-    if(_artistDoubleTapTimer){
-      clearTimeout(_artistDoubleTapTimer);
-      _artistDoubleTapTimer=null;
+    const now=Date.now(), gap=now-_lastArtistTapTime;
+    if(gap>0 && gap<500){
+      _lastArtistTapTime=0;
       try{ artistEl.setPointerCapture(e.pointerId); }catch(_){}
       e.preventDefault();
       setTimeout(()=>openDialogSheet(), 20);
     } else {
-      _artistDoubleTapTimer=setTimeout(()=>{
-        _artistDoubleTapTimer=null;
-        spriteEl.style.transform='scaleX(1)';
-        playTapSFX();
-        playTouchReaction();
-        tapReaction(a);
-      }, 350);
+      _lastArtistTapTime=now;
+      spriteEl.style.transform='scaleX(1)';
+      playTapSFX();
+      playTouchReaction();
+      tapReaction(a);
     }
   });
 }
@@ -1872,8 +1881,38 @@ function stopPlayerWalk(){
   if(playerWalkTimer){ clearInterval(playerWalkTimer); playerWalkTimer=null; }
   if(playerSpriteEl) playerSpriteEl.src=playerIdleSrc();
 }
+
+let _pendingGiftDelivery=null;
+function showPlayerGiftBadge(content){
+  if(!playerEl) return;
+  let b=playerEl.querySelector('.gift-badge');
+  if(!b){ b=document.createElement('div'); b.className='gift-badge'; playerEl.appendChild(b); }
+  b.textContent=content; b.style.display='block';
+}
+function hidePlayerGiftBadge(){
+  playerEl?.querySelector('.gift-badge')?.remove();
+}
+function walkAndDeliverGift(type, id, writtenData){
+  const a=curA(); if(!a) return;
+  _pendingGiftDelivery={type,id,writtenData};
+  const emoji = type==='writtenGift' ? (writtenData?.id==='fortune'?'🥠':'✉️')
+                                      : (GIFTS.find(g=>g.id===id)?.emoji||'🎁');
+  showPlayerGiftBadge(emoji);
+  player.tx=a.x; player.ty=a.y;
+}
 function movePlayer(){
   if(!playerEl) return;
+  if(_pendingGiftDelivery){
+    const a=curA();
+    if(a && charDist(player.x,player.y,a.x,a.y)<COLLISION_R+3){
+      const d=_pendingGiftDelivery; _pendingGiftDelivery=null;
+      player.tx=player.x; player.ty=player.y;
+      stopPlayerWalk(); hidePlayerGiftBadge();
+      if(d.type==='writtenGift') deliverWritableGift(d.id,d.writtenData.text);
+      else { deliverGift(d.id); setTimeout(()=>renderStorage(),100); }
+      return;
+    }
+  }
   const ddx=player.tx-player.x, ddy=player.ty-player.y, dist=Math.hypot(ddx,ddy);
   if(dist<0.5){ if(player.dx||player.dy){ player.dx=0; player.dy=0; stopPlayerWalk(); } return; }
   const step=Math.min(SPD,dist);
@@ -2359,8 +2398,7 @@ appEl.addEventListener('pointerup',e=>{
     if(onRoom){
       const saved=dragState;
       clearWrittenDrag();
-      deliverWritableGift(saved.id,saved.writtenData.text);
-      setTimeout(()=>renderStorage(),100);
+      walkAndDeliverGift('writtenGift',saved.id,saved.writtenData);
     }
     /* 방 밖 → ghost floating 유지, 다음 탭 대기 */
     return;
@@ -2370,7 +2408,7 @@ appEl.addEventListener('pointerup',e=>{
   const dropY=e.clientY;
   dragGhost.style.display='none';
   if(dropY<sheetTop){
-    if(dragState.type==='gift') deliverGift(dragState.id);
+    if(dragState.type==='gift') walkAndDeliverGift('gift',dragState.id,null);
     else placeFurniture(dragState.id);
     setTimeout(()=>renderStorage(),100);
   }
@@ -3285,7 +3323,7 @@ function preloadAndStart(){
     'assets/카이_앞.png','assets/카이_깜짝.png',
     'assets/카이_웃음_1.png','assets/카이_웃음_2.png','assets/카이_웃음_3.png','assets/카이_웃음_4.png',
     'assets/카이_걷기_1.png','assets/카이_걷기_2.png','assets/카이_걷기_3.png','assets/카이_걷기_4.png',
-    'assets/초기랜딩화면.png',
+    'assets/기본홈.svg',
   ];
   let loaded = 0;
   const minTime = new Promise(r => setTimeout(r, 5000));
